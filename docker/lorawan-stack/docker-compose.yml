@@ -1,0 +1,129 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chirpstack
+      POSTGRES_PASSWORD: chirpstack
+      POSTGRES_DB: chirpstack
+    volumes:
+      - lw-postgres_data:/var/lib/postgresql/data
+      # Runs once on first init to create the second (ThingsBoard) role+db
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chirpstack -d chirpstack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iot
+
+  redis:
+    image: redis:7-alpine
+    container_name: lw-redis
+    restart: unless-stopped
+    volumes:
+      - lw-redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iot
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: lw-mosquitto
+    restart: unless-stopped
+    ports:
+      # Only needed if something OUTSIDE docker (e.g. a gateway that talks
+      # native MQTT, or you debugging with mosquitto_sub from the host) must
+      # reach the broker directly. ChirpStack <-> Mosquitto <-> ThingsBoard
+      # traffic all stays inside the "iot" docker network and does not need this.
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - lw-mosquitto_data:/mosquitto/data
+      - lw-mosquitto_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iot
+
+  chirpstack:
+    image: chirpstack/chirpstack:4
+    container_name: lw-chirpstack
+    restart: unless-stopped
+    command: ["-c", "/etc/chirpstack"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    ports:
+      - "9080:8080"
+    volumes:
+      - ./chirpstack:/etc/chirpstack
+    networks:
+      - iot
+
+  # Converts the gateway's Semtech UDP packet-forwarder protocol into MQTT
+  # messages that ChirpStack consumes. Most physical LoRaWAN gateways speak
+  # UDP, not MQTT directly, so this is usually required.
+  chirpstack-gateway-bridge:
+    image: chirpstack/chirpstack-gateway-bridge:4
+    container_name: lw-gateway-bridge
+    restart: unless-stopped
+    ports:
+      - "1700:1700/udp"
+    volumes:
+      - ./chirpstack-gateway-bridge:/etc/chirpstack-gateway-bridge
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - iot
+
+  thingsboard:
+    image: thingsboard/tb-postgres:4.0.1
+    container_name: lw-thingsboard
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/thingsboard
+      SPRING_DATASOURCE_USERNAME: thingsboard
+      SPRING_DATASOURCE_PASSWORD: thingsboard
+      TB_QUEUE_TYPE: in-memory
+    ports:
+      - "9090:9090"        # Web UI
+      - "1884:1883"        # MQTT device transport (host 1884 -> avoids clash with lw-mosquitto)
+      - "7070:7070"        # Edge RPC
+      - "5683-5688:5683-5688/udp"  # CoAP / LwM2M
+    volumes:
+      - lw-thingsboard_data:/data
+      - lw-thingsboard_logs:/var/log/thingsboard
+    networks:
+      - iot
+
+volumes:
+  lw-postgres_data:
+  lw-redis_data:
+  lw-mosquitto_data:
+  lw-mosquitto_log:
+  lw-thingsboard_data:
+  lw-thingsboard_logs:
+
+networks:
+  iot:
+    driver: bridge
