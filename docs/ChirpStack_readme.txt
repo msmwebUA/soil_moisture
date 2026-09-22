@@ -1,4 +1,4 @@
-### ChirpStack Configuration using UI ###
+### ChirpStack Configuration using UI (OTAA authorization) ###
 
 1. Add tenant
   Name: Tenant-Name
@@ -26,28 +26,7 @@
 4. Create payload decoder (add codec)
   Device Profiles → Profile-Name → Payload codec
 
-  If WioE5 firmware sends payload in this format:
-    Byte 0   flags
-    Byte 1-2 soil moisture
-    Byte 3-4 temperature *100
-    Byte 5-6 battery mV
-    Byte 7-8 interval minutes
-
-  JS function for decoding payload above: 
-    function decodeUplink(input) {
-      const b = input.bytes;
-      let temp = (b[3] << 8) | b[4];
-      if (temp > 32767) temp -= 65536;
-      return {
-        data: {
-          flags: b[0],
-          moisture: (b[1] << 8) | b[2],
-          temperature: temp / 100.0,
-          batteryMilliV: (b[5] << 8) | b[6],
-          intervalMinutes: (b[7] << 8) | b[8]
-        }
-      };
-    }
+  Paste two JS functions decodeUplink(input) and encodeDownlink(input) from codec.js file
 
 5. Add device
   Tenant → Applications → App-Name → Devices → Add Device
@@ -56,7 +35,7 @@
     2 DevEUI: f304cb294d0d3489
     3 Device profile: Tenant -> Profile-Name
 
-  Configure/Generate OTAA keys (copy them to field sensor node's firmware or simulator)
+6. Configure/Generate OTAA keys (copy them to field sensor node's firmware or simulator)
   Device → Configuration / OTAA Keys
   Example:
     JoinEUI: 7e2d336eb3c67da8 (configuration tab)
@@ -74,8 +53,88 @@
   Port up = 1700 // ChirpStack Gateway Bridge listens on this port
   Port down = 1700
 
+8. Create gateway
+  Gateways → Add Gateway
+  Example:
+    Name: TestGateway
+    Gateway ID: dea72cabaa3c116a
+    Tenant: Tenant-Name
+
+
+
+### ChirpStack Configuration using UI (ABP authorization instead OTAA) ###
+(tested in simulation mode, test successful)
+
+0. Create Tenant and Application if needed (see instructions from first section above (OTAA configuration))
+
+1. Create the device profile
+  Tenant → Device Profiles → Add device profile
+    General tab:
+      Name: e.g. Wio-E5-ABP
+      Region: EU868
+      MAC version: LoRaWAN 1.0.3 (must match what firmware/simulator uses)
+      Regional parameters revision: B (or whatever matches MAC version)
+      Leave ADR algorithm at default
+    OTAA/ABP tab:
+      Uncheck "Device supports OTAA" — that's makes it ABP
+      Fill in the ABP RX parameters that appear:
+        RX1 delay: 1 (second)
+        RX1 data rate offset: 0
+        RX2 data rate: 0
+        RX2 frequency: 869525000 (Hz, EU868 default)
+    Factory-preset frequencies: leave default/empty unless device profile template requires specific ones
+    Codec tab: select Custom JavaScript functions and paste two JS functions decodeUplink(input) and encodeDownlink(input) from codec.js file
+
+  Click Submit.
+
+2. Create the device using that profile
+  Application → Add device.
+    Fill in or generate a Device EUI (any 16 hex chars) and select created above ABP device profile
+    
+  Click Submit.
+
+3. Activate device (ABP session keys)
+  Open the device's Activation tab
+    Enter (or generate) the DevAddr, Network session key (NwkSKey), and Application session key (AppSKey).
+    Click (Re)Activate device.
+
+    These keys must be used for simulation (for example, copy values into DEV_ADDR, NWK_SKEY, APP_SKEY in simulator_crypto_abp.py)
+
+4. Add the gateway
+  Gateways → Add gateway 
+    Set own or generate the Gateway ID 
+    Region: EU868
+  
+  ID must be used for simulation (for example, paste as GATEWAY_EUI to simulator_crypto_abp.py)
+
+Once all four IDs/keys match between ChirpStack and the script, we can run the simulator and uplinks should appear under the device's Events/Live LoRaWAN frames tab
+
+
+
+### Simulate field node data and gateway in ABP mode ###
+(tested!)
+1. Run simulator_crypto_abp.py
+2. Check device events and frames in UI (gateway is offline, because it does not simulate stat)
+
+
+
+### Simulate gateway statistics ###
+1. Run simulator_gateway_stat
+2. Check log for packets
+  sudo docker logs -f lw-gateway-bridge
+3. Check UI:
+    Gateways → Gateway-Name (must be online)
+
+### Test with python code (simulate Semtech UDP) ###
+1. Run simulator_simple_udp
+2. Check log for packets
+  sudo docker logs -f lw-gateway-bridge
+3. Check UI for data
+
+
 
 ### ChirpStack simulator setup and configuration ###
+(TEST SIMULATION FAILED for unknown reason, simulator does not create gateway and payload does not get to MQTT)
 
 1. Install Go
 
@@ -88,10 +147,15 @@
 
   ./build/chirpstack-simulator configfile > simulator.toml
 
-4. Configure simulator
+4. Configure simulator 
+  cp simulator.toml simulator-default-copy.toml
+  :> simulator.toml     (clear file text)
+  nano simulator.toml
+
+  Paste this and edit api_key, tenant_id, server ip and ports
 
   [general]
-  log_level=4
+  log_level=5
 
   [chirpstack.api]
   api_key="YOUR_API_KEY"
@@ -102,7 +166,7 @@
   server="tcp://192.168.1.110:1883"
 
   [chirpstack.gateway.backend.mqtt]
-  server="tcp://192.168.1.100:1883"
+  server="tcp://192.168.1.110:1883"
 
   [[simulator]]
 
@@ -136,7 +200,7 @@
         interval       60.      min
 
 5. Start simulator
-  ./build/chirpstack-simulator simulator.toml
+  ./build/chirpstack-simulator --config simulator.toml 
 
 6. Check OTAA (in ChirpStack UI)
   Applications → Device → LoRaWAN Frames
