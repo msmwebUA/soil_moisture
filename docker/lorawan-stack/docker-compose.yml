@@ -69,6 +69,8 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
+    environment:
+      MQTT_BROKER_HOST: mosquitto
     ports:
       - "9080:8080"
     volumes:
