@@ -1,24 +1,35 @@
 # copy lorawan-stack directory to server and cd into it
 
 # clone default configs from github and copy to lorawan-stack directory
-git clone https://github.com/chirpstack/chirpstack-docker /tmp/csd
-cp -r /tmp/csd/configuration/chirpstack ./chirpstack/
-cp -r /tmp/csd/configuration/chirpstack-gateway-bridge ./chirpstack-gateway-bridge/
+  git clone https://github.com/chirpstack/chirpstack-docker /tmp/csd
+  cp -r /tmp/csd/configuration/chirpstack ./chirpstack/
+  cp -r /tmp/csd/configuration/chirpstack-gateway-bridge ./chirpstack-gateway-bridge/
 
 # edit these rows in chirpstack.toml (use service names, not names of containers)
-[postgresql]
-dsn="postgres://chirpstack:chirpstack@postgres:5432/chirpstack?sslmode=disable"
+  [postgresql]
+  dsn="postgres://chirpstack:chirpstack@postgres:5432/chirpstack?sslmode=disable"
 
-[redis]
-servers=["redis://redis:6379/"]
+  [redis]
+  servers=["redis://redis:6379/"]
 
-[integration.mqtt]
-server="tcp://mosquitto:1883/"
+# remove unused regions and leave usefuls only
+  enabled_regions=[
+    "eu868",
+  ]
+
+  [integration.mqtt]
+  server="tcp://mosquitto:1883/"
 
 # cd to dir contains docker-compose.yml file and run these commands:
-sudo docker compose up -d postgres redis mosquitto        # wait minute to startup database
-sudo docker compose logs -f postgres                      # you must see both the 'chirpstack' and 'thingsboard' databases get created (the init script runs once, only on a fresh/empty volume).
-sudo docker compose up -d                                 # run other containers
+  sudo docker compose up -d postgres redis mosquitto        # wait minute to startup database
+  sudo docker compose logs -f postgres                      # you must see both the 'chirpstack' and 'thingsboard' databases get created (the init script runs once, only on a fresh/empty volume).
+  sudo docker compose up -d                                 # run other containers
+
+# edit default topic prefix for MQTT packets
+  nano chirpstack/region_eu868.toml
+  # change topic prefix to "" instead topic_prefix="eu868"
+  topic_prefix=""
+
 
 -------------
 
