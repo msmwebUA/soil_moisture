@@ -9,11 +9,12 @@ from datetime import datetime, timezone
 
 SERVER = "192.168.1.110"
 PORT = 1700
+GATEWAY_ID = bytes.fromhex("dea72cabaa3c116a")
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 def main() -> None:
   while True:
-    gateway_eui = bytes.fromhex("AA555A0000000001")
-    soil = random.randint(900, 2200)
+    moisture = random.randint(900, 2200)
     temp = int(22.5 * 100)
     battery = 3950
     interval = 60
@@ -22,7 +23,7 @@ def main() -> None:
     payload = bytearray(9)
 
     payload[0] = 0
-    payload[1:3] = soil.to_bytes(2, "big")
+    payload[1:3] = moisture.to_bytes(2, "big")
     payload[3:5] = temp.to_bytes(2, "big", signed=True)
     payload[5:7] = battery.to_bytes(2, "big")
     payload[7:9] = interval.to_bytes(2, "big")
@@ -52,10 +53,10 @@ def main() -> None:
       b"\x02" +
       token +
       b"\x00" +
-      gateway_eui +
+      GATEWAY_ID +
       json.dumps(data).encode()
     )
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+  
     sock.sendto(packet, (SERVER, PORT))
     print(f"{current_timestamp}: Sent PUSH_DATA")
     time.sleep(10)
