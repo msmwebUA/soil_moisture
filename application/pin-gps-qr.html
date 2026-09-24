@@ -9,7 +9,7 @@
 
   <style>
     /* use this CSS for HTML card widget in ThingsBoard */
-    .provisioning-card {
+    .widget-card {
       font-family: Roboto, sans-serif;
       text-align: center;
       padding: 15px;
@@ -182,7 +182,7 @@
               { fps: 10, qrbox: { width: 250, height: 250 } },
               function onScanSuccess(decodedText) {
                   detectedDeviceName = decodedText.trim();
-                  status.text("Found Sensor: " + detectedDeviceName + ". Verifying asset...");
+                  status.text("Found device: " + detectedDeviceName + ". Verifying asset...");
                   
                   html5QrcodeScanner.stop().then(function() {
                       qrReaderDiv.hide();
@@ -223,7 +223,7 @@
                   }
               },
               function(err) {
-                  status.text("🛑 Error: Sensor " + name + " not found. Check exact spelling & casing.");
+                  status.text("🛑 Error: Device " + name + " not found. Check exact spelling & casing.");
               }
           );
       }
@@ -275,7 +275,7 @@
 <body>
 
   <!-- use this div for HTML card widget in ThingsBoard -->
-  <div class="provisioning-card">
+  <div class="widget-card">
     <h6 class="card-title">Pin Coordinates to Device</h6>
 
     <!-- camera scanner screen -->
@@ -284,7 +284,7 @@
     <!-- manual input (hidden by default) -->
     <div id="manual-input-container" class="manual-input-container">
       <label for="manual-device-id" class="manual-input-label">Enter Device Name Manually:</label>
-      <input type="text" id="manual-device-id" class="manual-input-field" placeholder="e.g., soil-sensor-01">
+      <input type="text" id="manual-device-id" class="manual-input-field" placeholder="e.g., sensorNode01">
       <button id="manual-submit-btn" class="btn btn-find">Find Device</button>
     </div>
 
@@ -297,7 +297,7 @@
 
     <!-- Live Status Console -->
     <div id="console-status" class="console-status">
-      Scan a sensor or type ID to begin.
+      Scan QR-code or type device name to begin.
     </div>
   </div>
 
