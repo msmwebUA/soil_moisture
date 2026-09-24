@@ -1,21 +1,11 @@
-
-#!/usr/bin/env python3
 """
 LoRaWAN OTAA end-device + Semtech UDP packet-forwarder simulator.
 
-IMPORTANT:
-- This is an END-DEVICE simulator wrapped in a simulated Semtech UDP gateway.
-- It sends real LoRaWAN PHY payloads (OTAA JoinReq and encrypted data frames)
-  inside Semtech UDP JSON packets to ChirpStack Gateway Bridge.
-- It does NOT transmit RF. A normal Ethernet/Wi-Fi LAN cannot carry LoRa RF.
-- Therefore it tests Gateway Bridge -> MQTT -> ChirpStack -> application decoding,
-  including real LoRaWAN cryptography, but it does not test the physical gateway,
-  antenna, RF sensitivity, or packet-forwarder radio demodulation.
+Simulator sends real LoRaWAN PHY payloads (OTAA JoinReq and encrypted data frames) 
+inside Semtech UDP JSON packets to ChirpStack Gateway Bridge.
 
-Default crypto mode mirrors the supplied firmware's intended LoRaWAN 1.0.x
-behavior: AppKey is used as the root key and the join-accept/session keys follow
-LoRaWAN 1.0.x. The firmware comment says "LoRaWAN 1.0.x NWK_KEY = APP_KEY".
-If your installed RadioLib version is actually configured for LoRaWAN 1.1,
+AppKey is used as the root key and the join-accept/session keys follow
+LoRaWAN 1.0.x. If RadioLib version is configured for LoRaWAN 1.1,
 use --lw-version 1.1 and configure ChirpStack accordingly.
 
 Dependencies:

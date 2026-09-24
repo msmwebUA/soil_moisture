@@ -1,33 +1,26 @@
 """
 Simulates field sensor unite and the packet-forwarder gateway. It sends
-real, correctly-encrypted LoRaWAN uplinks to ChirpStack's built-in UDP
-listener (the "chirpstack-gateway-bridge" Semtech UDP forwarder).
+encrypted LoRaWAN uplinks to ChirpStack's built-in UDP
+listener (chirpstack-gateway-bridge).
 
 This uses ABP (Activation By Personalization) instead of OTAA, so there is
-no join procedure to simulate - just tell ChirpStack the DevAddr /
-NwkSKey / AppSKey.
+no join procedure to simulate, just DevAddr, NwkSKey, AppSKey.
 
 See ChirpStack_readme.txt for instructions on how to set up ChirpStack ABP (profile, device and gateway)
 
---------------------------------------------------------------------------
-USAGE
---------------------------------------------------------------------------
+Usage:
     open venv
     pip3 install pycryptodome
     python3 simulator.py --host 192.168.1.110 --interval 60
 
---host is the IP of the machine running ChirpStack (the UDP listener
-is chirpstack-gateway-bridge, default port 1700).
+    --host is the IP of the machine running ChirpStack (the UDP listener
+    is chirpstack-gateway-bridge, default port 1700).
 
---------------------------------------------------------------------------
-LIMITATIONS
---------------------------------------------------------------------------
-- Uplink only. Downlinks (e.g. changing the interval from ThingsBoard)
-  are not received, because that needs a PULL_DATA session kept alive and
-  a real RF path back down - out of scope for a quick ChirpStack test.
-- FCnt is kept in memory only; restarting the script resets it to 0.
-  ChirpStack may reject frames with an FCnt it has already seen - if that
-  happens, delete and re-add the device (or reset FCnt) in ChirpStack.
+Limitations:
+    Uplink only. Downlinks (e.g. changing the interval from ThingsBoard)
+    are not received.
+    FCnt is kept in memory only, restarting the script resets it to 0, so
+        create device without frame counter validation, or alternatively, delete and re-add the device (or reset FCnt) in ChirpStack after each run. 
 """
 
 import argparse
@@ -37,29 +30,27 @@ import random
 import socket
 import struct
 import time
-
 from Crypto.Cipher import AES
 from Crypto.Hash import CMAC
 
-# ========================== EDIT THESE TO MATCH CHIRPSTACK =================
-
-GATEWAY_EUI = "16e4e44b2d48fc22"          # 16 hex chars, must match the Gateway ID in ChirpStack
-DEV_ADDR    = "00e128f8"                  # 8 hex chars (4 bytes)
-NWK_SKEY    = "fe6f473a347443d76f75920fc022f53f"  # 32 hex chars (16 bytes)
-APP_SKEY    = "d403b654d659277d19658674874f1f94"  # 32 hex chars (16 bytes)
+# ABP
+GATEWAY_EUI = "16e4e44b2d48fc22"          # 16 hex chars, Gateway ID in ChirpStack
+DEV_ADDR    = "01bbb5a4"                  # 8 hex chars (4 bytes)
+NWK_SKEY    = "305d844d0b434fbf32ffa838171aec65"  # 32 hex chars (16 bytes)
+APP_SKEY    = "58ab2e17a4a9c3cf78b30c562ba6ff8f"  # 32 hex chars (16 bytes)
 
 FPORT_DATA = 1
 
-# =============================================================================
-
+# semtech udp
+PROTOCOL_VERSION = 0x02
+PUSH_DATA = 0x00
+PULL_DATA = 0x02
 
 def h2b(h):
     return bytes.fromhex(h)
 
-
 def aes_encrypt_block(key, block):
     return AES.new(key, AES.MODE_ECB).encrypt(block)
-
 
 def lorawan_encrypt_payload(key_hex, dev_addr_hex, fcnt, direction, payload):
     """Encrypt FRMPayload per LoRaWAN 1.0.x spec (CTR-like construction)."""
@@ -75,7 +66,6 @@ def lorawan_encrypt_payload(key_hex, dev_addr_hex, fcnt, direction, payload):
     xored = bytes(a ^ b for a, b in zip(padded, s))
     return xored[:len(payload)]
 
-
 def lorawan_mic(key_hex, dev_addr_hex, fcnt, direction, msg):
     """Compute the 4-byte MIC (AES-CMAC) over B0 || msg."""
     key = h2b(key_hex)
@@ -86,9 +76,8 @@ def lorawan_mic(key_hex, dev_addr_hex, fcnt, direction, msg):
     cobj.update(b0 + msg)
     return cobj.digest()[:4]
 
-
 def build_phypayload(fcnt, payload_bytes):
-    """Unconfirmed Data Up, FPort=FPORT_DATA, no MAC options."""
+    """Build a LoRaWAN uplink frame."""
     mhdr = bytes([0x40])                       # unconfirmed data up, major=0
     dev_addr_le = h2b(DEV_ADDR)[::-1]
     fctrl = bytes([0x00])                      # ADR off, no ACK, FOptsLen=0
@@ -102,21 +91,16 @@ def build_phypayload(fcnt, payload_bytes):
     mic = lorawan_mic(NWK_SKEY, DEV_ADDR, fcnt, 0, msg)
     return msg + mic
 
-
-# ------------------------------------------------------------------ payload -
-
+# payload
 def read_fake_sensors():
-    """Stand-ins for the real ADC/DS18B20 readings. Replace with anything
-    you like, e.g. gradually drifting values, random walk, fixed test
-    vectors, or values typed in interactively."""
+    """Generate fake sensor data."""
     soil_raw = random.randint(1500, 3000)      # 12-bit ADC counts
     temp_c = round(random.uniform(15.0, 25.0), 2)
     vbat_mv = random.randint(3700, 4700)
     return soil_raw, temp_c, vbat_mv
 
-
 def compose_payload(soil_raw, temp_c, vbat_mv, interval_min):
-    """Same 9-byte layout as the real firmware / ChirpStack codec expects."""
+    """ Mirrors the supplied firmware's 9-byte application payload."""
     flags = 0
     if soil_raw < 100 or soil_raw > 4000:
         flags |= 0x02
@@ -135,14 +119,6 @@ def compose_payload(soil_raw, temp_c, vbat_mv, interval_min):
     b[7] = (interval_min >> 8) & 0xFF
     b[8] = interval_min & 0xFF
     return bytes(b)
-
-
-# ----------------------------------------------------------- semtech (udp) -
-
-PROTOCOL_VERSION = 0x02
-PUSH_DATA = 0x00
-PULL_DATA = 0x02
-
 
 def send_push_data(sock, addr, phy_payload):
     token = random.randint(0, 0xFFFF)
@@ -165,16 +141,12 @@ def send_push_data(sock, addr, phy_payload):
     body = json.dumps({"rxpk": [rxpk]}).encode("utf-8")
     sock.sendto(header + body, addr)
 
-
 def send_pull_data(sock, addr):
     """Optional: tells the server this gateway is online (needed only if
-    you later want to test downlinks with a fuller simulator)."""
+    later want to test downlinks)."""
     token = random.randint(0, 0xFFFF)
     packet = struct.pack(">BHB", PROTOCOL_VERSION, token, PULL_DATA) + h2b(GATEWAY_EUI)
     sock.sendto(packet, addr)
-
-
-# ---------------------------------------------------------------------- main
 
 def main():
     ap = argparse.ArgumentParser(description="Simulate a Wio-E5 soil node -> ChirpStack (UDP)")
