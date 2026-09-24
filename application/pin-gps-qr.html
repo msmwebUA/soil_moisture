@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
+  <title>Pin Coordinates to Sensor</title>
+
+  <!-- add url link to html5-qrcode.min.js on Resources tab in ThingsBoard custom widget editor  -->
+
+  <style>
+    /* use this CSS for HTML card widget in ThingsBoard */
+    .provisioning-card {
+      font-family: Roboto, sans-serif;
+      text-align: center;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+    }
+
+    .card-title {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .qr-reader {
+      width: 100%;
+      max-width: 350px;
+      margin: 0 auto;
+      display: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .manual-input-container {
+      display: none;
+      margin: 15px 0;
+      padding: 10px;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      background: #fdfdfd;
+    }
+
+    .manual-input-label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .manual-input-field {
+      width: 80%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .action-controls {
+      margin-top: 15px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: white;
+    }
+
+    .btn-find {
+      background: #673AB7;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    .btn-scan {
+      background: #2196F3;
+      padding: 12px;
+      font-size: 16px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .btn-fallback {
+      background: #9E9E9E;
+      padding: 8px;
+      font-size: 14px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .btn-pin {
+      background: #4CAF50;
+      padding: 12px;
+      font-size: 16px;
+      width: 100%;
+      display: none;
+    }
+
+    .console-status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #555;
+      padding: 8px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+  </style>
+  <!-- use this JS for HTML card widget in ThingsBoard -->
+  <!-- remember to add longitude and latitude server-side attributes (double datatype) to device (Device -> Attributes) -->
+  <script>
+    self.onInit = function() {
+      var ctx = self.ctx;
+      var $container = ctx.$container;
+      var $injector = ctx.$scope.$injector;
+      var deviceService = $injector.get(ctx.servicesMap.get('deviceService'));
+      
+      var scanBtn = $container.find('#scan-btn');
+      var fallbackBtn = $container.find('#fallback-btn');
+      var gpsBtn = $container.find('#pin-btn');
+      var manualSubmitBtn = $container.find('#manual-submit-btn');
+      
+      var status = $container.find('#console-status');
+      var qrReaderDiv = $container.find('#qr-reader');
+      var manualContainer = $container.find('#manual-input-container');
+      var manualInput = $container.find('#manual-device-id');
+      
+      var html5QrcodeScanner = null;
+      var detectedDeviceName = ""; 
+      var targetEntityId = null;
+
+      function getSelectedDeviceAliasId() {
+        if (ctx.dashboard && ctx.dashboard.aliasController && ctx.dashboard.aliasController.entityAliases) {
+            var aliases = ctx.dashboard.aliasController.entityAliases;
+            for (var id in aliases) {
+                if (aliases[id].alias === "SelectedDevice") {
+                    return id;
+                }
+            }
+        }
+        return null;
+      }
+
+      function showManualFallback(reasonMessage) {
+          if(html5QrcodeScanner) {
+              html5QrcodeScanner.stop().catch(function(){});
+          }
+          qrReaderDiv.hide();
+          manualContainer.show();
+          status.text("🛑 Error: " + reasonMessage + " Please type the name below.");
+      }
+
+      fallbackBtn.on('click', function() {
+          manualContainer.toggle();
+          qrReaderDiv.hide();
+          if(html5QrcodeScanner) {
+              html5QrcodeScanner.stop().catch(function(){});
+          }
+      });
+
+      // QR code scanner
+      scanBtn.on('click', function() {
+          manualContainer.hide();
+          if (typeof Html5Qrcode === 'undefined') {
+              status.text("🛑 Error: QR Code scanner library is not available.");
+          } else {
+              startCameraScanning();
+          }
+      });
+
+      function startCameraScanning() {
+          qrReaderDiv.show();
+          status.text("Initializing hardware camera...");
+          
+          var ScannerConstructor = window.Html5Qrcode || Html5Qrcode;
+          html5QrcodeScanner = new ScannerConstructor("qr-reader");
+          
+          html5QrcodeScanner.start(
+              { facingMode: "environment" }, 
+              { fps: 10, qrbox: { width: 250, height: 250 } },
+              function onScanSuccess(decodedText) {
+                  detectedDeviceName = decodedText.trim();
+                  status.text("Found Sensor: " + detectedDeviceName + ". Verifying asset...");
+                  
+                  html5QrcodeScanner.stop().then(function() {
+                      qrReaderDiv.hide();
+                      lookupDeviceByName(detectedDeviceName);
+                  });
+              },
+              function onScanFailure(error) {}
+          ).catch(function(err) {
+              showManualFallback("Camera stream blocked. Check HTTPS or phone privacy settings.");
+          });
+      }
+
+      // manual input
+      manualSubmitBtn.on('click', function() {
+          var inputName = manualInput.val().trim();
+          if(!inputName) {
+              status.text("Please enter a valid device name.");
+              return;
+          }
+          detectedDeviceName = inputName;
+          status.text("Searching database for " + detectedDeviceName + "...");
+          lookupDeviceByName(detectedDeviceName);
+      });
+
+      // database
+      function lookupDeviceByName(name) {
+          // ThingsBoard API maps name searches to 'findByName'
+          deviceService.findByName(name).subscribe(
+              function(device) {
+                  // ThingsBoard returns the entity metadata container
+                  if (device && device.id) {
+                      targetEntityId = device.id;
+                      status.html("✅ Device found in database: " + name + ".<br>Stand beside the device and press Pin Coordinates.");
+                      manualContainer.hide();
+                      gpsBtn.show(); 
+                  } else {
+                      status.text("🛑 Error: Device recognized but missing metadata.");
+                  }
+              },
+              function(err) {
+                  status.text("🛑 Error: Sensor " + name + " not found. Check exact spelling & casing.");
+              }
+          );
+      }
+
+      // geolocation and attributes injection
+      gpsBtn.on('click', function() {
+          status.text("Fetching smartphone GPS coordinates...");
+          
+          if (!navigator.geolocation) {
+              status.text("🛑 Error: Geolocation blocked or unsupported by browser.");
+              return;
+          }
+          
+          navigator.geolocation.getCurrentPosition(function(position) {
+              var lat = position.coords.latitude;
+              var lng = position.coords.longitude;
+              
+              status.text("Coordinates found. Writing attributes to server...");
+              
+              // to save these, corresponding server-side attributes must be created in device settings in ThingsBoard before this script can be used
+              var attributes = [
+                  { key: "latitude", value: lat },
+                  { key: "longitude", value: lng }
+              ];
+              
+              ctx.attributeService.saveEntityAttributes(targetEntityId, "SERVER_SCOPE", attributes)
+                  .subscribe(function() {
+                      status.text("✅ Coordinates (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ") bound to " + detectedDeviceName + ".");
+                      gpsBtn.hide();
+                      
+                      var aliasId = getSelectedDeviceAliasId();
+                      if (aliasId) {
+                          ctx.aliasController.updateStateEntity(aliasId, targetEntityId);
+                      }
+                      ctx.updateAliases(); 
+                  }, function(err) {
+                      status.text("🛑 Error: Failed to save attributes to server backend.");
+                  });
+                  
+          }, function(error) {
+              status.text("🛑 GPS Error: " + error.message);
+          }, { enableHighAccuracy: true, timeout: 7000 });
+      });
+  };
+
+  </script>
+
+</head>
+<body>
+
+  <!-- use this div for HTML card widget in ThingsBoard -->
+  <div class="provisioning-card">
+    <h6 class="card-title">Pin Coordinates to Device</h6>
+
+    <!-- camera scanner screen -->
+    <div id="qr-reader" class="qr-reader"></div>
+
+    <!-- manual input (hidden by default) -->
+    <div id="manual-input-container" class="manual-input-container">
+      <label for="manual-device-id" class="manual-input-label">Enter Device Name Manually:</label>
+      <input type="text" id="manual-device-id" class="manual-input-field" placeholder="e.g., soil-sensor-01">
+      <button id="manual-submit-btn" class="btn btn-find">Find Device</button>
+    </div>
+
+    <!-- buttons -->
+    <div class="action-controls">
+      <button id="scan-btn" class="btn btn-scan"> 📷 Scan Device QR Code </button>
+      <button id="fallback-btn" class="btn btn-fallback"> ⌨️ Type Device Name </button>
+      <button id="pin-btn" class="btn btn-pin">📍 Pin Coordinates </button>
+    </div>
+
+    <!-- Live Status Console -->
+    <div id="console-status" class="console-status">
+      Scan a sensor or type ID to begin.
+    </div>
+  </div>
+
+
+</body>
+</html>
+

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
+  <title>Pin Coordinates to Sensor</title>
+  <style>
+    /* use this CSS for HTML card widget in ThingsBoard */
+    #pin-coordinates-btn {
+      background: #4CAF50; 
+      color: white; 
+      padding: 10px 20px; 
+      border: none; 
+      border-radius: 4px; 
+      font-size: 16px; 
+      cursor: pointer; 
+      width: 100%; 
+    }
+    #gps-status {
+      margin-top: 10px; 
+      font-size: 14px; 
+      color: #666;
+    }
+  </style>
+  <!-- use this JS for HTML card widget in ThingsBoard -->
+  <!-- remember to add longitude and latitude server-side attributes (double datatype) to device (Device -> Attributes) -->
+  <script>
+    self.onInit = function() {
+      var btn = self.ctx.$container.find('#pin-coordinates-btn');
+      var status = self.ctx.$container.find('#gps-status');
+      btn.on('click', function() {
+        status.text("Fetching your location...");
+        if (!navigator.geolocation) {
+          status.text("🛑 Error: Geolocation not supported by this browser.");
+          return;
+        }
+        // Check current device ID bound to this dashboard/widget
+        var currentDevice = null;
+        if (self.ctx.datasources && self.ctx.datasources.length > 0) {
+          var entityId = self.ctx.datasources[0].entityId;
+          var entityType = self.ctx.datasources[0].entityType;
+          if (entityId && entityType) {
+            currentDevice = {
+              id: entityId,
+              entityType: entityType
+            };
+          }
+        }
+        if (!currentDevice) {
+          status.text("🛑 Error: No device selected on dashboard.");
+          return;
+        }
+        // Try to get current location
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          status.text("Location found! Saving to ThingsBoard...");
+          // Call ThingsBoard internal attribute service directly
+          var attributes = [{key: "latitude", value: lat}, {key: "longitude", value: lng}];
+          self.ctx.attributeService.saveEntityAttributes(currentDevice, "SERVER_SCOPE", attributes)
+            .subscribe(function() {
+              status.text("✅ Success! Coordinates saved to device.");
+            }, function(err) {
+              status.text("🛑 Failed to save attributes to database.");
+            });
+          }, function(error) {
+            status.text("GPS Error: " + error.message);
+          }, { enableHighAccuracy: true });
+      });
+    };
+  </script>
+
+</head>
+<body>
+
+  <!-- use this div for HTML card widget in ThingsBoard -->
+  <div style="text-align: center; padding: 10px;">
+    <button id="pin-coordinates-btn">📍 Pin Coordinates to Sensor</button>
+    <div id="gps-status"></div>
+  </div>
+
+</body>
+</html>
