@@ -29,7 +29,7 @@ function decodeUplink(input) {
   pct = Math.max(0, Math.min(100, pct));
 
   var data = {
-    moisture_raw: soil,
+    moisture_raw: moisture,
     moisture_pct: Math.round(pct * 10) / 10,
     battery_v: battery / 1000,
     interval_min: interval,
