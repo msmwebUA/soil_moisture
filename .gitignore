@@ -1,2 +1,8 @@
 docs/invoices/
 todo.txt
+images/
+docs/current_measurement.numbers
+sensor_unit_code/.cache/
+sensor_unit_code/.vscode/
+sensor_unit_code/.pio
+sensor_unit_code/compile_commands.json
