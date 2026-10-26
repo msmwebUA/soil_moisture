@@ -1,0 +1,74 @@
+.widget-card {
+  padding: 0;
+  font-family: Menlo, sans-serif;
+}
+.settings-row {
+  padding: 0 5px 5px 5px;
+  margin-bottom: 5px;
+  border: 2px solid #d9d6d6;
+  border-radius: 12px;
+}
+.widget-card, .widget-card-title, .settings-row-title, .current-settings-output, .btn, .select-list {
+  font-size: small;
+}
+.widget-card-title {
+    margin: 2px 0 2px 0;
+}
+.settings-row-title {
+    margin: 2px 0 0 0;
+}
+.widget-card-title, .settings-row-title {
+    padding: 0;
+    font-weight: bold;
+}
+.current-settings-output {
+    margin: 0 0 5px 0;
+    padding: 0;
+}
+.action-controls {
+  margin-top: 5px;
+}
+.btn {
+  padding: 5px 10px;
+  margin-right: 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+}
+.action-btn {
+  background-color: #2196F3;
+  color: white;
+}
+.cancel-btn {
+  display: none;
+  background-color: #d9d6d6;
+}
+.alert {
+  display: none;
+  font-size: x-small;
+}
+.alert-success {
+  color: green;
+}
+.alert-error {
+  color: red;
+}
+.alert-warning {
+  color: orange;
+}
+.select-list {
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+#manual-coordinates-container {
+  display: none;
+}
+#manual-interval-container {
+  display: none;
+}
+#set-manual-coordinates-btn {
+  display: none;
+}
+#set-interval-btn {
+  display: none;
+}

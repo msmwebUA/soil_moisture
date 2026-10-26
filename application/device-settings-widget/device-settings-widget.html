@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Device Settings</title>
+</head>
+<body>
+  <div class="widget-card">
+    <h3 class="widget-card-title">Device Settings</h3>
+    <p class="current-settings-output" id="last-seen-output">Device last seen: No data</p>
+    <div class="settings-row">
+      <div id="settings-coordinates">
+        <h4 class="settings-row-title">Coordinates</h4>
+        <p class="current-settings-output" id="current-coordinates-output">Current coordinates: None</p>
+        <div class="manual-input-container" id="manual-coordinates-container">
+          <label for="latitude-input">Latitude</label><br>
+          <input type="text" id="latitude-input" placeholder="60.1676">
+          <br><br>
+          <label for="longitude-input">Longitude</label><br>
+          <input type="text" id="longitude-input" placeholder="24.9542">
+        </div>
+        <div class="action-controls">
+          <button class="btn action-btn" id="set-current-coordinates-btn">📍 Pin current position</button>
+          <button class="btn action-btn" id="show-manual-coordinates-btn">✍️ Set manually</button>
+          <button class="btn action-btn" id="set-manual-coordinates-btn">📍 Set coordinates</button>
+          <button class="btn cancel-btn" id="cancel-coordinates-btn">Cancel</button>
+        </div>
+        <p class="alert" id="coordinates-alert"></p>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div id="settings-interval">
+        <h4 class="settings-row-title">Measurement Interval</h4>
+        <p class="current-settings-output" id="current-interval-output">Current interval: XX minutes</p>
+        <div class="manual-input-container" id="manual-interval-container">
+          <select class="select-list" name="select-interval" id="select-interval">
+            <option value="2">2 min (test purposes only)</option>
+            <option value="5">5 min (test purposes only)</option>
+            <option value="30">30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">1 h</option>
+            <option value="90">1,5 h</option>
+            <option value="120">2 h</option>
+            <option value="150">2,5 h</option>
+            <option value="180">3 h</option>
+            <option value="210">3,5 h</option>
+            <option value="240">4 h</option>
+            <option value="1440">24 h</option>
+          </select>
+        </div>
+        <div class="action-controls">
+          <button class="btn action-btn" id="show-interval-btn">⏱️ Set interval</button>
+          <button class="btn action-btn" id="set-interval-btn">💾 Save interval</button>
+          <button class="btn cancel-btn" id="cancel-interval-btn">Cancel</button>
+        </div>
+        <p class="alert" id="interval-alert"></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
