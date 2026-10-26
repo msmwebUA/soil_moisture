@@ -1,0 +1,15 @@
+### Downlink from ThingsBoard to sensor unit ###
+
+1. Create ChirpStack API key
+  Tenant -> API Keys -> Add API key
+    Copy created key
+
+2. Create/modify alias in ThingsBoard Dashboard (tie device ID)
+  Edit Dashboard -> Aliases -> Add alias (see ThingsBoard readme for details)
+
+3. Create/use custom widget uses this JS code for downlink sending
+  Look at device-settings-widget script
+
+4. Modify Root Rule Chain in ThingsBoard
+
+5. Verify downlink in ChirpStack
