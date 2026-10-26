@@ -59,28 +59,114 @@
 
 
 ### Add custom server-side attributes to device ###
+	Device -> Attributes -> Server attributes
+	For example:
+		longitude (double datatype)
+		latitude (double datatype)
 
 
+### Add markers to map widget ###
+	Edit Dashboard -> Edit Widget Settings -> Overlays
+		Source: Device
+			Select Device
+		Latitude key: custom latitude key (device attributes)
+		Longitude key: custom longitude key (device attributes)
+		Click gear to edit Datasources
+			Datasource: Device
+			Keys -> Additional data keys: pick from device attributes (keys)
+			Tooltip: Pattern
+				Example: <b>${entityName}</b><br /><br /><b>Latitude:</b> ${latitude:7}<br /><b>Longitude:</b> ${longitude:7}<br /><b>Temperature:</b> ${temperature} °C<br /><b>Moisture:</b> ${moisture_pct} %<br /><b>Interval (min):</b> ${interval_min} <br /><b>Battery low:</b> ${low_battery} <br />
+		
 
-### Add map widget ###
-
-
-### Add custom widget (Pin Coordinates) ###
+### Add custom widget ###
 
 1. Create entity alias
-	To update a device using js script, it needs a way to find it
-	Open Dashboard and click Edit
-		Entity aliases ➔ Add alias
-			Alias Name: SelectedDevice
-			Filter Type: Entity from a dashboard state 
-	This allows the custom widget script to change which device the dashboard is currently looking at when a QR code is scanned
+	... One static device on the Dashboard page
+		Open Dashboard and click Edit
+			Entity aliases -> Add alias
+				Alias Name: CurrentDevice
+				Filter Type: Single entity
+				Type: Device
+				Choose your device from list
+
+	... Several devices on the Dashboard page (can be selected)
+		Open Dashboard and click Edit
+			Entity aliases -> Add alias
+				Alias Name: SelectedDevice
+				Filter Type: Entity from a dashboard state 
+		This allows the custom widget script to change which device the dashboard is currently looking (for example manual selection from list or QR-code scan)
 
 2. Create custom widget
-	Main menu -> Widget Library -> Widgets bundles -> Add
+	Main menu -> Resources -> Widget Library -> Widgets bundles -> Add
 		Widget bundle name: Custom Widgets
 			Add new widget type
 				Select Static as the widget type
 			Paste the HTML, CSS, Resources, and JavaScript codes to editor tabs
-			Give name like "Pin Coordinates Card"
+			Give name like "Device Settings Card" etc
 	Dashboard -> Edit mode
 		Click Add new widget ➔ select the custom bundle you created ➔ choose your custom widget
+	
+	Note: get ID of selected device by using JS for custom widget (see full examples in "application" directory)
+		
+		self.onInit = function() {
+      const ctx = self.ctx;
+      const $container = ctx.$container;
+      const $injector = ctx.$scope.$injector;
+      const deviceService = $injector.get(ctx.servicesMap.get('deviceService'));
+
+		... Example for one device on the page (single entity):
+			  // search Dashboard alias by name
+        let entityAliases = ctx.aliasController.entityAliases;
+        for (let aliasId in entityAliases) {
+          let aliasObj = entityAliases[aliasId];
+          if (aliasObj.alias === "CurrentDevice") { // custom alias name created for current device
+            if (aliasObj.filter.singleEntity.entityType === "DEVICE") { // check entity is device
+              let deviceId = aliasObj.filter.singleEntity.id;
+              console.log("Device ID: ", deviceId);
+              let deviceName = '';
+              deviceService.getDevice(deviceId).subscribe(
+								function success(device) {
+										// ThingsBoard returns the device metadata container
+										if (device) {
+											deviceName = device.name;
+											console.log("Device name: " + deviceName);
+										} else {
+											console.log("Device name not found");
+										}
+								},
+								function error(err) {
+									console.log("Cannot find device name: " + err);
+								}
+              );
+          //   return {
+					//       id: deviceId;
+					//       name: deviceName;
+          //   }
+            }
+          }
+        }
+			
+
+		... Example for several device on the page (Entity from a dashboard state)
+			function getSelectedDeviceAliasId() {
+				if (ctx.dashboard && ctx.dashboard.aliasController && ctx.dashboard.aliasController.entityAliases) {
+						let aliases = ctx.dashboard.aliasController.entityAliases;
+						for (let id in aliases) {
+								if (aliases[id].alias === "SelectedDevice") {
+										return id;
+								}
+						}
+				}
+				return null;
+			}
+
+			ctx.attributeService.saveEntityAttributes(targetEntityId, "SERVER_SCOPE", attributes).subscribe(function() {
+					let aliasId = getSelectedDeviceAliasId();
+					if (aliasId) {
+							ctx.aliasController.updateStateEntity(aliasId, <targetEntityId>);
+					}
+					ctx.updateAliases(); 
+			}, function(err) {
+					console.log("Error: Failed to save attributes to server backend.");
+			});
+		

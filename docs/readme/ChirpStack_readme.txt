@@ -12,7 +12,7 @@
   Name: App-Name
 
 3. Create device profile for new tenant
-  Device Profiles → Add device profile
+  Device Profiles -> Add device profile
   Example:
     1 Name: Profile-Name
     2 Region: EU868
@@ -24,26 +24,26 @@
     6 Class: A (turn off Class B and Class C if turned on, see tabs)
 
 4. Create payload decoder (add codec)
-  Device Profiles → Profile-Name → Payload codec
+  Device Profiles -> Profile-Name -> Payload codec
 
   Paste two JS functions decodeUplink(input) and encodeDownlink(input) from codec.js file
 
 5. Add device
-  Tenant → Applications → App-Name → Devices → Add Device
+  Tenant -> Applications -> App-Name -> Devices -> Add Device
   Example:
     1 Name: Field01Node01 or F01N01
     2 DevEUI: f304cb294d0d3489
     3 Device profile: Tenant -> Profile-Name
 
 6. Configure/Generate OTAA keys (copy them to field sensor node's firmware or simulator)
-  Device → Configuration / OTAA Keys
+  Device -> Configuration / OTAA Keys
   Example:
     JoinEUI: 7e2d336eb3c67da8 (configuration tab)
     Application Key: e9939f8a400e6fb1a45bcbf5c47e5205 (OTAA keys tab)
     Network Key: fff2061727d150b6ea1673b4f00af135 (OTAA keys tab)
 
 6. Create API Token (this token can be used by simulators and API clients)
-  Tenant → API Keys → Add API Key
+  Tenant -> API Keys -> Add API Key
   Name: Token-Name
 
   Copy and save generated token
@@ -54,7 +54,7 @@
   Port down = 1700
 
 8. Create gateway
-  Gateways → Add Gateway
+  Gateways -> Add Gateway
   Example:
     Name: TestGateway
     Gateway ID: dea72cabaa3c116a
@@ -68,7 +68,7 @@
 0. Create Tenant and Application if needed (see instructions from first section above (OTAA configuration))
 
 1. Create the device profile
-  Tenant → Device Profiles → Add device profile
+  Tenant -> Device Profiles -> Add device profile
     General tab:
       Name: e.g. Wio-E5-ABP
       Region: EU868
@@ -88,7 +88,7 @@
   Click Submit.
 
 2. Create the device using that profile
-  Application → Add device.
+  Application -> Add device.
     Fill in or generate a Device EUI (any 16 hex chars) and select created above ABP device profile
     
   Click Submit.
@@ -101,7 +101,7 @@
     These keys must be used for simulation (for example, copy values into DEV_ADDR, NWK_SKEY, APP_SKEY in simulator_crypto_abp.py)
 
 4. Add the gateway
-  Gateways → Add gateway 
+  Gateways -> Add gateway 
     Set own or generate the Gateway ID 
     Region: EU868
   
@@ -123,7 +123,7 @@ Once all four IDs/keys match between ChirpStack and the script, we can run the s
 2. Check log for packets
   sudo docker logs -f lw-gateway-bridge
 3. Check UI:
-    Gateways → Gateway-Name (must be online)
+    Gateways -> Gateway-Name (must be online)
 
 ### Test with python code (simulate Semtech UDP) ###
 1. Run simulator_simple_udp
@@ -203,7 +203,7 @@ Once all four IDs/keys match between ChirpStack and the script, we can run the s
   ./build/chirpstack-simulator --config simulator.toml 
 
 6. Check OTAA (in ChirpStack UI)
-  Applications → Device → LoRaWAN Frames
+  Applications -> Device -> LoRaWAN Frames
 
   Expected:
     JoinRequest
@@ -211,7 +211,7 @@ Once all four IDs/keys match between ChirpStack and the script, we can run the s
     UnconfirmedDataUp
 
 7. Verify decoded sensor data
-  Applications → Device → Events
+  Applications -> Device -> Events
 
   Expected:
     {
@@ -228,7 +228,7 @@ Once all four IDs/keys match between ChirpStack and the script, we can run the s
     mosquitto_sub -v -t 'application/+/device/+/event/up'
 
 9. Verify gateway activity
-  Gateways → Gateway
+  Gateways -> Gateway
 
   Expected:
     Last Seen: now
