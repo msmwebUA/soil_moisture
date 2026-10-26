@@ -8,3 +8,4 @@ sensor_unit_code/.pio
 sensor_unit_code/compile_commands.json
 application/pin-gps-man-test.html
 application/pin-gps-qr-test.html
+chirpstack/api_key.txt
