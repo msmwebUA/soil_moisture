@@ -49,8 +49,8 @@
 #define PIN_MOSFET       D10 // PB10
 
 // Time
-#define DEFAULT_INTERVAL  5 // measurement interval, minutes
-#define MIN_INTERVAL      5 // ! minimum duty cycle is 1% (max 36 sec transmission per hour) regulated by Traficom
+#define DEFAULT_INTERVAL  60 // measurement interval, minutes
+#define MIN_INTERVAL      2 // ! minimum duty cycle is 1% (max 36 sec transmission per hour) regulated by Traficom
 #define MAX_INTERVAL      1440
 #define SENSOR_SETTLE_MS  500 // wait for sensors settle, milliseconds
 #define DS18B20_DELAY_MS  800 // delay for temp sensor has time to converse (750 ms is max for 12 bit ADC), milliseconds
