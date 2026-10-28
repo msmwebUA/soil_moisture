@@ -8,9 +8,9 @@
 //    Byte 5-6 battery mV
 //    Byte 7-8 interval minutes
 
-// --- CALIBRATE THESE for moisture sensor (raw ADC values, 12 bit, 3.3 V) ---
-var SOIL_RAW_AIR   = 3000;  // sensor in dry air     -> 0 %
-var SOIL_RAW_WATER = 1500;  // sensor in water       -> 100 %
+// --- CALIBRATE THESE for moisture sensor (raw ADC values, 12 bit) ---
+var SOIL_RAW_AIR   = 3270;  // sensor in dry air     -> 0 %
+var SOIL_RAW_WATER = 2320;  // sensor in water       -> 100 %
 
 // Uplink, fPort 1: [flags, moisture_hi, moisture_lo, temp_hi, temp_lo, battery_hi, battery_lo, interval_hi, interval_lo]
 function decodeUplink(input) {
@@ -25,7 +25,7 @@ function decodeUplink(input) {
   var battery  = (b[5] << 8) | b[6];
   var interval = (b[7] << 8) | b[8];
 
-  var pct = (SOIL_RAW_AIR - moisture) * 100 / (SOIL_RAW_AIR - SOIL_RAW_WATER);
+  var pct = (moisture - SOIL_RAW_WATER) * 100 / (SOIL_RAW_AIR - SOIL_RAW_WATER);
   pct = Math.max(0, Math.min(100, pct));
 
   var data = {
@@ -46,8 +46,8 @@ function decodeUplink(input) {
 // Downlink: {"interval_min": 30} -> 2 bytes (sent on fPort 10)
 function encodeDownlink(input) {
   var m = input.data.interval_min;
-  if (typeof m !== "number" || m < 1 || m > 1440 || Math.floor(m) !== m) {
-    return { errors: ["interval_min must be an integer 1..1440"] };
+  if (typeof m !== "number" || m < 2 || m > 1440 || Math.floor(m) !== m) {
+    return { errors: ["interval_min must be an integer 2..1440"] };
   }
   return { bytes: [(m >> 8) & 0xFF, m & 0xFF] };
 }
