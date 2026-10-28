@@ -222,6 +222,7 @@ Hardware:
       sudo systemctl status lora-packet-forwarder
     Log
       sudo journalctl -u lora-packet-forwarder -f
+      sudo journalctl -n 100 -u lora-packet-forwarder
 
 7. Add gateway to ChirpStack app
   Open ChirpStack app located on the server

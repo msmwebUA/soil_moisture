@@ -4,12 +4,101 @@
   Tenant -> API Keys -> Add API key
     Copy created key
 
-2. Create/modify alias in ThingsBoard Dashboard (tie device ID)
+2. Create/modify alias in ThingsBoard Dashboard (tie device ID to Dashboard)
   Edit Dashboard -> Aliases -> Add alias (see ThingsBoard readme for details)
 
-3. Create/use custom widget uses this JS code for downlink sending
-  Look at device-settings-widget script
+3. Add devEui to device server side attributes
+  Device -> Attributes -> Server Attributes -> Add new
+    Key: devEui
+    String: <devEUI from chirpstack>
 
-4. Modify Root Rule Chain in ThingsBoard
+4. Create/use custom widget uses this JS code for downlink sending
+  Look at device-settings-widget script for details
+    Example of function:
+      setIntervalBtn.on("click", function() {
+          let newInterval = parseInt(selectInterval.val()); // interval in minutes
+          if (newInterval === parseInt(currentInterval)) {
+              showAlert(intervalAlert, "Current interval is same as selected", "warning", true);
+              return;
+          }
+          let intervalHex = newInterval.toString(16).padStart(4, "0"); // 2 bytes, padStart fills small numbers with leading zeroes
+          // RPC (Remote Procedure Call) routes to the ThingsBoard's Rule Engine, and custom rule (must be created) uses a REST API call to push the downlink payload directly to ChirpStack's queue endpoint
+          ctx.http.post(
+            `/api/rule-engine/DEVICE/${currentDevice.id}/10000`,
+            {
+                method: "downlink",
+                params: {
+                    fPort: 10,              // LoRaWAN FPort for downlink configured in device firmware
+                    confirmed: false,       // Confirmed / Unconfirmed message
+                    data: intervalHex       // Hex-encoded string (or plaintext depending on your codec)
+                }
+            })
+            .subscribe(
+                function success() { 
+                    showAlert(intervalAlert, '✅  Downlink command sent to rule engine.', "success", true); 
+                }, 
+                function error(err) {
+                    const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                    showAlert(intervalAlert, '🛑 Error triggering downlink: ' + msg, "error", true); 
+                }
+          );
+      });
 
-5. Verify downlink in ChirpStack
+5. Create custom Rule Chain in ThingsBoard
+
+  4.1. Create the chain
+    Rule chains -> Create new rule chain
+
+  4.2. Add filter nodes
+    Filter -> script
+      Paste to code field
+        return msg.method == "downlink";
+  
+  4.3. Get devEui from device server side attributes
+    Enrichment -> originator attributes
+      Server attributes: devEui
+      Add orig. attr. to: Metadata
+
+  4.4. Add a transformation node (create downlink body)
+    Transformation -> script
+      language TBEL
+        var eui = metadata.ss_devEui;
+        if (eui == null) {
+          throw "devEui missing";
+        }
+        var p = msg.params instanceof String ? JSON.parse(msg.params) : msg.params;
+        metadata.devEui = eui;
+        var newMsg = {
+          queueItem: {
+            confirmed: p.confirmed,
+            fPort: p.fPort,
+            data: hexToBase64(p.data)
+          }
+        };
+        return {msg: newMsg, metadata: metadata, msgType: msgType};
+
+  4.5. Add a REST API call node
+    External -> rest api call
+      Endpoint URL pattern: http://<chirpstack_ip>:<port>/api/devices/${devEui}/queue
+      Request method: POST
+      Headers:
+        Content-Type = application/json
+        Authorization = Bearer <CHIRPSTACK_API_KEY>
+  
+  4.6. Add Rest Call Reply node
+
+  4.5. Connect nodes
+    Input -> script filter (True) -> originator attributes (Success) -> transformation (Success) -> rest api call (Success) -> rest call reply
+    Optionally connect the REST node’s Failure output to a log node to debug
+
+6. Put custom rule into the Root Rule Chain
+    Open Root Rule Chain
+    Add a rule chain node (it is in Flow section) and select your custom rule
+    Draw a connection from Message Type Switch to this node and choose "REST API Request" as link label
+
+7. Verify downlink in ChirpStack
+  Check ChirpStack’s device Queue tab
+
+If log node connected to rule chain nodes (failure relation):
+  thingsboard log available at
+    sudo docker logs -f --tail 200 THINGSBOARD_CONTAINER_NAME

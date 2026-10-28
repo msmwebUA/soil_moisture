@@ -17,7 +17,7 @@
     1 Name: Profile-Name
     2 Region: EU868
     3 MAC Version: LoRaWAN 1.1.0
-    4 Regional Parameters: RP002-1.0.3
+    4 Regional Parameters: RP002-1.0.4
 
     5 Supports OTAA: YES (OTAA tab)
 
@@ -41,6 +41,13 @@
     JoinEUI: 7e2d336eb3c67da8 (configuration tab)
     Application Key: e9939f8a400e6fb1a45bcbf5c47e5205 (OTAA keys tab)
     Network Key: fff2061727d150b6ea1673b4f00af135 (OTAA keys tab)
+
+  Note. Keep private:
+  Passwords
+  API keys (ChirpStack, ThingsBoard)
+  AppKey (OTAA)
+  NwkKey (OTAA)
+
 
 6. Create API Token (this token can be used by simulators and API clients)
   Tenant -> API Keys -> Add API Key

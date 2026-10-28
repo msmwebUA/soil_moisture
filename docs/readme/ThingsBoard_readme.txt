@@ -7,6 +7,7 @@
 		Name: Device-Name
 		Device Profile: default
 	Open your newly created device from the list and copy access token from the main details window
+	For downlink sending consider to add devEui server side attribute to device (see details in downlink readme)
 
 2. Configure ChirpStack to forward data to ThingsBoard
 	Use ChirpStack’s internal HTTP Integration to push decoded JSON telemetry directly to ThingsBoard's API

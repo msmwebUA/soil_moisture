@@ -1,0 +1,2 @@
+Duty cycle in Finland (Traficom):
+  868.0-868.6 MHz: 1% (36sec/h)
