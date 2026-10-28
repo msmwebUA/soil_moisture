@@ -2,8 +2,6 @@ self.onInit = function() {
       const ctx = self.ctx;
       const $container = ctx.$container;
       const $injector = ctx.$scope.$injector;
-      const deviceService = $injector.get(ctx.servicesMap.get('deviceService'));
-      //const telemetry = 
       // DOM elements
       // Card
       const cardTitle = $container.find('.widget-card-title');
@@ -86,7 +84,8 @@ self.onInit = function() {
             showAlert(coordinatesAlert, "🛑 Error: Geolocation blocked or unsupported by browser", "error", true);
             return;
         }
-        navigator.geolocation.getCurrentPosition(function success(position) {
+        navigator.geolocation.getCurrentPosition(
+          function success(position) {
             let lat = position.coords.latitude;
             let lng = position.coords.longitude;
             // to save these, corresponding server-side attributes must be created in device settings in ThingsBoard before this script can be used
@@ -95,9 +94,13 @@ self.onInit = function() {
               { key: "longitude", value: lng }
             ];
             saveAttributes(currentDevice, attributes);
-          }, function error(err) {
-            showAlert(coordinatesAlert, "🛑 GPS Error: " + err.message, "error", true);
-          }, { enableHighAccuracy: true, timeout: 7000 });
+          }, 
+          function error(err) {
+            const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+            showAlert(coordinatesAlert, "🛑 GPS Error: " + msg, "error", true);
+          }, 
+          { enableHighAccuracy: true, timeout: 7000 }
+        );
       });
       
       setManualCoordinatesBtn.on("click", function() {
@@ -122,20 +125,27 @@ self.onInit = function() {
           }
           let intervalHex = newInterval.toString(16).padStart(4, "0"); // 2 bytes, padStart fills small numbers with leading zeroes
           // RPC (Remote Procedure Call) routes to the ThingsBoard's Rule Engine, and custom rule (must be created) uses a REST API call to push the downlink payload directly to ChirpStack's queue endpoint
-          ctx.controlService.sendOneWayRpcCommand(
-            currentDevice.id,
+          ctx.http.post(
+            `/api/rule-engine/DEVICE/${currentDevice.id}/10000`,
             {
                 method: "downlink",
                 params: {
                     fPort: 10,              // LoRaWAN FPort for downlink configured in device firmware
                     confirmed: false,       // Confirmed / Unconfirmed message
                     data: intervalHex       // Hex-encoded string (or plaintext depending on your codec)
-                },
-                timeout: 5000
-            }).subscribe(function success() { 
+                }
+            })
+            .subscribe(
+                function success() { 
                     showAlert(intervalAlert, '✅  Downlink command sent to rule engine.', "success", true); 
-                }, function error(err) { 
-                    showAlert(intervalAlert, '🛑 Error triggering downlink: ' + err, "error", true); 
+                    manualIntervalContainer.hide();
+                    cancelIntervalBtn.hide();
+                    setIntervalBtn.hide();
+                    showIntervalBtn.show();
+                }, 
+                function error(err) {
+                    const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                    showAlert(intervalAlert, '🛑 Error triggering downlink: ' + msg, "error", true); 
                 }
           );
       });
@@ -151,7 +161,7 @@ self.onInit = function() {
               let deviceId = aliasObj.filter.singleEntity.id;
               console.log("Device ID found");
               try {
-                  let device = await deviceService.getDevice(deviceId).toPromise();
+                  let device = await ctx.deviceService.getDevice(deviceId).toPromise();
                   // ThingsBoard returns the device metadata container
                   if (device) {
                     return {
@@ -162,7 +172,8 @@ self.onInit = function() {
                     console.log("Device name not found");
                   }
               } catch (err) {
-                  console.error("Cannot find device name: ", err);
+                  const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                  console.log("Cannot find device name: ", msg);
               }
             }
           }
@@ -174,14 +185,32 @@ self.onInit = function() {
       }
         
       function saveAttributes(device, attributes) {
-          ctx.attributeService.saveEntityAttributes(device.id, "SERVER_SCOPE", attributes)
-            .subscribe(function() {
-              console.log("Saved attributes: " + attributes);
-              showAlert(coordinatesAlert, `✅ Attributes bound to ${device.name} refresh page to see changes` , "success", true);
-            }, function(err) {
-                console.log(err);
+          ctx.attributeService.saveEntityAttributes({entityType: "DEVICE", id: device.id}, "SERVER_SCOPE", attributes)
+            .subscribe(
+              function success() {
+                initWidget(); // refresh html elements
+                showAlert(coordinatesAlert, `✅ Attributes bound to ${device.name}.` , "success", true);
+              }, 
+              function error(err) {
+                const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                console.log(msg);
                 showAlert(coordinatesAlert, "🛑 Error: Failed to save attributes for device.", "error", true);
-            });
+              }
+            );
+      }
+      
+      async function getAttribute(device, attrName, scope) {
+        try {
+            let attr = await ctx.attributeService.getEntityAttributes({entityType: "DEVICE", id: device.id}, scope, [attrName]).toPromise();
+            if (attr) {
+                return attr; // array of objects contains all matches, object keys: key: attrName, lastUpdateTs: timestamp, value: attrValue
+            } else {
+                console.log("Device attribute not found:", attrName);
+            }
+        } catch (err) {
+            const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+            console.log(`Cannot get device ${scope} attribute: ${msg}`);
+        }
       }
         
       function showAlert(el, msg, type, clear) {
@@ -206,13 +235,26 @@ self.onInit = function() {
               default:
                   console.log("Invalid 'type' argument passed to showAlert function");
           }
+        
+        // add manual clear alert button to the end of message
+        const clearBtn = $('<button type="button" class="clear-alert-btn">✖️</button>');
+        clearBtn.on('click', function(e) {
+            e.preventDefault();
+            el.text("");
+            el.hide();
+            clearBtn.remove();
+        });
+        el.append(clearBtn);
       }
       
       function clearAlerts() {
           for (let el of alertElements) {
               el.text("");
-              el.hide;
+              el.hide();
           }
+          const btns = $container.find(".clear-alert-btn");
+          btns.off('click'); // remove listeners
+          btns.remove(); // remove all clear btns
       }
       
       function isValidCoordinates(latInput, lngInput) {
@@ -223,64 +265,93 @@ self.onInit = function() {
             !isNaN(lng) && lng >= -180 && lng <= 180
           );
       }
-
-    getCurrentDevice().then(device => {
-        if (!device || !device.id || device.id === "Unknown") {
-          console.log("No valid device found.");
-          return;
-        }
-        currentDevice = device;
-        // update card title
-        cardTitle.text("Device Setting: <" + device.name + ">");
-        // create custom subscription for telemetry
-        const subscriptionOptions = {
-          type: 'latest',
-          datasources: [{
-            type: 'entity',
-            name: device.name,
-            entityFilter: {
-              type: 'singleEntity',
-              singleEntity: { entityType: 'DEVICE', id: device.id }
-            },
-            dataKeys: [{
-              name: 'interval_min',
-              type: 'timeseries',
-              label: 'interval_min',
-              settings: {}
-            }]
-          }],
-          callbacks: {
-            onDataUpdated: function(subscription) {
-              const data = subscription.data;
-              if (!data || !data.length || !data[0].data.length) return;
-              const latestPoint = data[0].data[data[0].data.length - 1];
-              const ts = new Date(latestPoint[0]).toLocaleString();
-              intervalOutput.text(`Current interval: ${latestPoint[1]} min (updated: ${ts})`);
-              lastSeenOutput.text(`Device last seen: ${ts}`);
-              currentInterval = latestPoint[1];
-            },
-            onDataUpdateError: function(subscription, err) {
-              console.log("Telemetry update failed:", err);
+    
+    function initWidget() {
+        // get device id and name on wiget init
+        getCurrentDevice().then(device => {
+            if (!device || !device.id || device.id === "Unknown") {
+              console.log("No valid device found.");
+              return;
             }
-          }
-        };
-        customSubscription = ctx.subscriptionApi
-          .createSubscription(subscriptionOptions, true)
-          .subscribe({
-            next: function(subscription) {
-              console.log("Custom telemetry subscription created.");
-              // Save the subscription if needed for later management.
-              ctx.$scope.customTelemetrySubscription = subscription;
-            },
-            error: function(err) {
-              console.error("Cannot create telemetry subscription:", err);
+            currentDevice = device;
+            // update card title
+            cardTitle.text("Device Setting: <" + device.name + ">");
+            // update coordinates
+            Promise.all([
+                getAttribute(currentDevice, "latitude", "SERVER_SCOPE"),
+                getAttribute(currentDevice, "longitude", "SERVER_SCOPE")
+            ]).then(([latAttr, lngAttr]) => {
+                let lat = latAttr && latAttr.length ? latAttr[0].value : "n/a";
+                let lng = lngAttr && lngAttr.length ? lngAttr[0].value : "n/a";
+                coordinatesOutput.text(`Current coordinates: lat(${lat}), lng(${lng})`);
+            });
+            // create custom subscription for telemetry if it does not exist yet
+            if (!customSubscription) {
+                const subscriptionOptions = {
+                  type: 'latest',
+                  datasources: [{
+                    type: 'entity',
+                    name: device.name,
+                    entityFilter: {
+                      type: 'singleEntity',
+                      singleEntity: { entityType: 'DEVICE', id: device.id }
+                    },
+                    dataKeys: [
+                        {
+                          name: 'interval_min',
+                          type: 'timeseries',
+                          label: 'interval_min',
+                          settings: {}
+                        }
+                    ]
+                  }],
+                  callbacks: {
+                    onDataUpdated: function(subscription) {
+                      const data = subscription.data;
+                      if (!data || !data.length) return;
+                      // helper func to get latest [ts, value] point for a given key
+                      const getLatest = (keyName) => {
+                        const series = data.find(d => d.dataKey && d.dataKey.name === keyName);
+                        if (!series || !series.data || !series.data.length) return null;
+                        return series.data[series.data.length - 1];
+                      };
+                      const intervalPoint = getLatest("interval_min");
+                      if (intervalPoint) {
+                        const ts = new Date(intervalPoint[0]).toLocaleString();
+                        intervalOutput.text(`Current interval: ${intervalPoint[1]} min (updated: ${ts})`);
+                        lastSeenOutput.text(`Device last seen: ${ts}`);
+                        currentInterval = intervalPoint[1];
+                      } else {
+                          showAlert(intervalAlert, "⚠️ Cannot load interval value from telemetry", "warning", true);
+                      }
+                    },
+                    onDataUpdateError: function(subscription, err) {
+                      const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                      console.log("Telemetry update failed:", msg);
+                    }
+                  }
+                };
+                customSubscription = ctx.subscriptionApi
+                  .createSubscription(subscriptionOptions, true)
+                  .subscribe({
+                    next: function(subscription) {
+                      console.log("Custom telemetry subscription created.");
+                      // save the subscription for later management
+                      ctx.$scope.customTelemetrySubscription = subscription;
+                    },
+                    error: function(err) {
+                      const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+                      console.log(msg);
+                    }
+                  });
             }
-          });
-    }).catch(err => {
-        console.log("Cannot get current device:", err);
-    });
-      
-      
+        }).catch(err => {
+            const msg = (err && err.error && err.error.message) || (err && err.message) || err;
+            console.log("Cannot get current device:", msg);
+        });
+    }  
+    // call custom init function on widget self.onInit
+    initWidget(); 
 };
 
 self.onDestroy = function() {
