@@ -46,20 +46,20 @@
 
 5. Create custom Rule Chain in ThingsBoard
 
-  4.1. Create the chain
+  5.1. Create the chain
     Rule chains -> Create new rule chain
 
-  4.2. Add filter nodes
+  5.2. Add filter nodes
     Filter -> script
       Paste to code field
         return msg.method == "downlink";
   
-  4.3. Get devEui from device server side attributes
+  5.3. Get devEui from device server side attributes
     Enrichment -> originator attributes
       Server attributes: devEui
       Add orig. attr. to: Metadata
 
-  4.4. Add a transformation node (create downlink body)
+  5.4. Add a transformation node (create downlink body)
     Transformation -> script
       language TBEL
         var eui = metadata.ss_devEui;
@@ -77,7 +77,7 @@
         };
         return {msg: newMsg, metadata: metadata, msgType: msgType};
 
-  4.5. Add a REST API call node
+  5.5. Add a REST API call node
     External -> rest api call
       Endpoint URL pattern: http://<chirpstack_ip>:<port>/api/devices/${devEui}/queue
       Request method: POST
@@ -85,9 +85,9 @@
         Content-Type = application/json
         Authorization = Bearer <CHIRPSTACK_API_KEY>
   
-  4.6. Add Rest Call Reply node
+  5.6. Add Rest Call Reply node
 
-  4.5. Connect nodes
+  5.7. Connect nodes
     Input -> script filter (True) -> originator attributes (Success) -> transformation (Success) -> rest api call (Success) -> rest call reply
     Optionally connect the REST node’s Failure output to a log node to debug
 

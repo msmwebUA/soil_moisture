@@ -48,19 +48,18 @@
   AppKey (OTAA)
   NwkKey (OTAA)
 
-
-6. Create API Token (this token can be used by simulators and API clients)
+7. Create API Token (this token can be used by simulators and API clients)
   Tenant -> API Keys -> Add API Key
   Name: Token-Name
 
   Copy and save generated token
 
-7. Gateway packet forwarders should be configured with:
+8. Gateway packet forwarders should be configured with:
   Server address = ChirpStack server IP
   Port up = 1700 // ChirpStack Gateway Bridge listens on this port
   Port down = 1700
 
-8. Create gateway
+9. Create gateway
   Gateways -> Add Gateway
   Example:
     Name: TestGateway
@@ -68,6 +67,7 @@
     Tenant: Tenant-Name
 
 
+### SIMULATION ###
 
 ### ChirpStack Configuration using UI (ABP authorization instead OTAA) ###
 (tested in simulation mode, test successful)
@@ -117,12 +117,10 @@
 Once all four IDs/keys match between ChirpStack and the script, we can run the simulator and uplinks should appear under the device's Events/Live LoRaWAN frames tab
 
 
-
 ### Simulate field node data and gateway in ABP mode ###
 (tested!)
 1. Run simulator_crypto_abp.py
 2. Check device events and frames in UI (gateway is offline, because it does not simulate stat)
-
 
 
 ### Simulate gateway statistics ###
@@ -132,12 +130,12 @@ Once all four IDs/keys match between ChirpStack and the script, we can run the s
 3. Check UI:
     Gateways -> Gateway-Name (must be online)
 
+
 ### Test with python code (simulate Semtech UDP) ###
 1. Run simulator_simple_udp
 2. Check log for packets
   sudo docker logs -f lw-gateway-bridge
 3. Check UI for data
-
 
 
 ### ChirpStack simulator setup and configuration ###
