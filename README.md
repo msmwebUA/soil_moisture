@@ -16,7 +16,7 @@ Field Sensor Unit (Node) -> LoRaWAN Gateway -> ChirpStack -> ThingsBoard -> Post
 
 ### Sensor Node
 
-- Wio-E5 Mini (based on STM32WLE5 MCU)
+- Wio-E5 Mini (based on STM32WLE5 module)
 - DFRobot SEN0193 capacitive soil moisture sensor
 - DS18B20 temperature sensor
 - Battery-powered, low-power operation
@@ -46,12 +46,12 @@ Field Sensor Unit (Node) -> LoRaWAN Gateway -> ChirpStack -> ThingsBoard -> Post
 
 ## Repository Structure
 
-application/ ThingsBoard widgets
-chirpstack/ Payload codec and configuration 
-docker/ Docker deployment files 
-docs/ Documentation, readme files and datasheets
-gateway/ Gateway configuration and tools 
-sensor_unit_code/ Field Sensore Unit firmware (PlatformIO project)
+**application/** ThingsBoard widgets  
+**chirpstack/** Payload codec and configuration  
+**docker/** Docker deployment files  
+**docs/** Documentation, readme files and datasheets  
+**gateway/** Gateway configuration and tools  
+**sensor_unit_code/** Field Sensore Unit firmware (PlatformIO project)  
 
 ## Author 
 
