@@ -214,7 +214,7 @@ void loop() {
   float tempC = 0;
   bool tempOk = readTemperature(tempC);
   debug("Temp ok=%d %d,%02d C", tempOk, (int)tempC, abs((int)(tempC * 100)) % 100);
-  // 3.1 - battery
+  // 3.3 - battery
   uint32_t vdd = readVdd();
   uint16_t battVoltage = readBattery(vdd);
   debug("VDD %lu mV, battery %u mV", (unsigned long)vdd, battVoltage);
