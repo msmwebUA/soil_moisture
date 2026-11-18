@@ -1,5 +1,5 @@
 /*
-* ! Before flashing first time: factory AT firmware must be erased and write protection disabled once with an st-link v2 programmer and STM32CubeProgrammer
+* ! Before flashing first time: factory AT firmware must be erased and write protection disabled once with an st-link v2 and STM32CubeProgrammer
 *
 * Wio-E5 mini + SEN0193 (moisture) + DS18B20 (temperature)
 *
@@ -29,18 +29,18 @@
 // }
 
 #include <Arduino.h>
-#include "TypeDef.h"
 #include <EEPROM.h>
 #include <cstdint>
-#include <stdarg.h>
 #include <cstring>
+#include <stdarg.h> // for debug
 #include <STM32LowPower.h>
 #include <STM32RTC.h>
 #include <stm32yyxx_ll_adc.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
+#include <OneWire.h> // communication with temperature sensor
+#include <DallasTemperature.h> // DS18B20
 #include "protocols/PhysicalLayer/PhysicalLayer.h" // Lora Physical Layer (RadioLib)
-#include <loraConfig.h>
+#include "TypeDef.h" // LoRaWAN types
+#include <loraConfig.h> // custom config
 
 // Pins
 #define PIN_BATTERY      A3  // PB3
@@ -74,7 +74,6 @@ OneWire oneWire(PIN_TEMPERATURE);
 DallasTemperature tempSensor(&oneWire);
 
 // Settings (measurement interval, devnonces etc)
-// uint8_t savedSession[RADIOLIB_LORAWAN_SESSION_BUF_SIZE]; // Buffer for session keys & counters
 struct DeviceSettings {
   uint16_t flag; // flag to know settings have already written to memory
   uint16_t measInterval;
@@ -93,7 +92,6 @@ bool otaaOk = false;
 
 // Custom debug
 #define DEBUG_ENABLE 1 // on/off debug to serial monitor
-
 #if DEBUG_ENABLE
   static void debug(const char *fmt, ...) {
     char b[112];
@@ -108,7 +106,7 @@ bool otaaOk = false;
 #define debug(...) do {} while (0)
 #endif
 
-// functions
+// Functions
 static void sensorPower(bool power);
 static uint32_t readVdd();
 static uint16_t readBattery(uint32_t vdd);
@@ -250,12 +248,13 @@ void loop() {
 
 // FUNCTIONS
 
+// Sensor power on/off
 static void sensorPower(bool power) {
   digitalWrite(PIN_MOSFET, power ? LOW : HIGH); // p-channel mosfet: low = sensors power on
 }
 
+// Read MCU VDD that can be used as ADC reference for battery voltage measurement
 static uint32_t readVdd() {
-  // Read MCU VDD that can be used as ADC reference for battery voltage measurement
   #if defined (__LL_ADC_CALC_VREFANALOG_VOLTAGE) && defined(AVREF)
     analogRead(AVREF); // stabilize ADC,  AVREF - internal channel
     uint32_t raw = 0;
@@ -268,6 +267,7 @@ static uint32_t readVdd() {
   return 3300; // return default 3.3V if __LL_ADC_CALC_VREFANALOG_VOLTAGE or AVREF is not applicable
 }
 
+// Read ADC and return average
 static uint16_t readAdcAvg(uint32_t pin, uint8_t n) {
   analogRead(pin); // stabilize ADC for pin
   uint32_t sum = 0;
@@ -278,12 +278,14 @@ static uint16_t readAdcAvg(uint32_t pin, uint8_t n) {
   return (uint16_t)(sum / n);
 }
 
+// Battery voltage measurement
 static uint16_t readBattery(uint32_t vRef) {
   uint16_t adcRaw = readAdcAvg(PIN_BATTERY, 16);
   float pinVoltage = (float)adcRaw * (float)vRef / 4095.0f; // millivolts, 4095 - 12 bit ADC
   return (uint16_t)(pinVoltage * (DIV_R1_KOHM + DIV_R2_KOHM) / DIV_R2_KOHM); // calculate Vin in millivolts
 }
 
+// Temperature measurement
 static bool readTemperature(float &tempC) {
   tempSensor.begin();
   if (tempSensor.getDeviceCount() == 0) return false; // sensor not connected
@@ -301,6 +303,7 @@ static bool readTemperature(float &tempC) {
   return false;
 }
 
+// Compose LoRaWAN payload
 static size_t composePayload(uint8_t *p, uint16_t moistureRaw, bool tempOk, float tempC, uint16_t battVoltage) {
   // flags
   uint8_t flags = 0;
@@ -322,6 +325,7 @@ static size_t composePayload(uint8_t *p, uint16_t moistureRaw, bool tempOk, floa
   return 9; // number of bytes in payload
 }
 
+// Activate OTAA and check session
 static bool activateOtaa() {
   if (node.isActivated()) return true; // already joined
   // try to join
@@ -345,6 +349,7 @@ static bool activateOtaa() {
   return false;
 }
 
+// Save Nonces buffer to flash
 static void saveNonces() {
   uint8_t newNonces[sizeof(settings.savedNonces)];
   memcpy(newNonces, node.getBufferNonces(), sizeof(newNonces)); // get pointer to Nonces buffer and copy it
@@ -360,6 +365,7 @@ static void saveNonces() {
   }
 }
 
+// Send uplink
 static bool sendUplink(const uint8_t *payload, size_t len) {
   for (uint8_t i = 0; i < MAX_TX_ATTEMPTS; i++) {
     uint8_t downlink[16];
@@ -385,6 +391,7 @@ static bool sendUplink(const uint8_t *payload, size_t len) {
   return false;
 }
 
+// Handle downlink
 static void handleDownlink(const uint8_t *d, size_t len, uint8_t fPort) {
   if (fPort == FPORT_CONFIG && len >= 2) {
     uint16_t v = ((uint16_t)d[0] << 8) | d[1]; // unites 2 separate bytes from downlink back into 16 bit integer
@@ -400,6 +407,7 @@ static void handleDownlink(const uint8_t *d, size_t len, uint8_t fPort) {
   }
 }
 
+// Sleep with chunked wakeup
 static void sleepSeconds(uint32_t sec) {
   while (sec > 0) {
     uint32_t chunk = (sec > 3600UL) ? 3600UL : sec; // break sleep time into periods of max 1 hour
